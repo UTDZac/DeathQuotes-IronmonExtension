@@ -18,4 +18,6 @@ Let's you change the death quotes that appear on the Game Over screen.
 7) Click on the "**DeathQuotes**" extension button to view the extension and turn it on
 
 ## How to use
-You can edit the Death Quotes by going to the extension and clicking the "Options" button. Access the extension through Settings > Extensions > Death Quotes.
+You can edit the Death Quotes by going to the extension and clicking the "Options" button.
+
+Access the extension through Settings > Extensions > Death Quotes
