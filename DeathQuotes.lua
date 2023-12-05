@@ -1,7 +1,7 @@
 local function DeathQuotes()
 	local self = {}
 	-- Define descriptive attributes of the custom extension that are displayed on the Tracker settings
-	self.version = "1.0"
+	self.version = "1.1"
 	self.name = "Death Quotes"
 	self.author = "UTDZac"
 	self.description = "Let's you change the death quotes that appear on the Game Over screen."
@@ -30,6 +30,75 @@ local function DeathQuotes()
 		end
 		FileManager.encodeToJsonFile(filepath, quotes or {})
 	end
+	---@param quote? string
+	---@return boolean
+	function self.isDuplicateQuote(quote)
+		if not quote or #quote == 0 then return false end
+		quote = Utils.toLowerUTF8(quote)
+		for _, existingQuote in pairs(Resources.GameOverScreenQuotes or {}) do
+			if quote == Utils.toLowerUTF8(existingQuote) then
+				return true
+			end
+		end
+		return false
+	end
+	---@param event table IEvent
+	---@param request table IRequest
+	---@return table response
+	function self.tryFulfillAddQuote(event, request)
+		local response = { AdditionalInfo = { AutoComplete = false } }
+		local quote = request.SanitizedInput
+
+		-- Check if there is a quote to add
+		if Utils.isNilOrEmpty(quote) then
+			response.Message = string.format("> %s, can't add an empty quote, please enter some text.", request.Username)
+			return response
+		end
+		-- Check if it has already been added
+		if self.isDuplicateQuote(quote) then
+			response.Message = string.format("> %s, that quote already exists.", request.Username)
+			return response
+		end
+		-- Add the quote and save
+		table.insert(Resources.GameOverScreenQuotes, quote)
+		self.saveQuotesToFile(Resources.GameOverScreenQuotes)
+
+		if event.Type == EventHandler.EventTypes.Command or event.O_SendMessage then
+			response.Message = string.format("> %s's quote added as Death Quote #%s.",
+				request.Username,
+				#Resources.GameOverScreenQuotes)
+		end
+		response.AdditionalInfo.AutoComplete = event.O_AutoComplete
+		return response
+	end
+
+	self.RewardEvent = EventHandler.IEvent:new({
+		Key = "CR_DeathQuotesAdd",
+		Type = EventHandler.EventTypes.Reward,
+		Name = "[EXT] Add a Death Quote",
+		RewardId = "", ---- Loaded later when event is added
+		Options = { "O_SendMessage", "O_AutoComplete" },
+		O_SendMessage = true,
+		O_AutoComplete = true,
+		Fulfill = function(this, request)
+			local response = self.tryFulfillAddQuote(this, request)
+			return response
+		end,
+	})
+	self.CommandEvent = EventHandler.IEvent:new({
+		Key = "CMD_DeathQuotesAdd",
+		Type = EventHandler.EventTypes.Command,
+		Name = "[EXT] Add a Death Quote",
+		Command = "!deathquote",
+		Help = "> Adds a quote that can appear on the Game Over screen.",
+		Fulfill = function(this, request)
+			local response = self.tryFulfillAddQuote(this, request)
+			response.AdditionalInfo = nil
+			return response
+		end,
+	})
+	self.RewardEvent.IsEnabled = false
+	self.CommandEvent.IsEnabled = false
 
 	function self.openPopup()
 		local x, y, w, h, lineHeight = 20, 15, 600, 405, 20
@@ -60,7 +129,6 @@ local function DeathQuotes()
 		end, x + 335, y)
 	end
 
-
 	-- EXTENSION FUNCTIONS
 	-- Executed when the user clicks the "Check for Updates" button while viewing the extension details within the Tracker's UI
 	function self.checkForUpdates()
@@ -87,6 +155,9 @@ local function DeathQuotes()
 			Resources.GameOverScreenQuotes = {}
 			FileManager.copyTable(quotes, Resources.GameOverScreenQuotes)
 		end
+
+		EventHandler.addNewEvent(self.RewardEvent)
+		EventHandler.addNewEvent(self.CommandEvent)
 	end
 
 	-- Executed only once: When the extension is disabled by the user, necessary to undo any customizations, if able
@@ -95,6 +166,9 @@ local function DeathQuotes()
 			Resources.GameOverScreenQuotes = {}
 			FileManager.copyTable(self.DefaultQuotes, Resources.GameOverScreenQuotes)
 		end
+
+		EventHandler.removeEvent(self.RewardEvent.Key)
+		EventHandler.removeEvent(self.CommandEvent.Key)
 	end
 
 	return self
